@@ -87,8 +87,8 @@ class TestOutputDim:
             "site_id",
             "effect_size",
             "causal_state",
+            "allele_freq",
             "trait_id",
-            "allele_freq"
         ]
         _check_numeric_array(df["site_id"], "site_id")
         _check_numeric_array(df["effect_size"], "effect_size")
@@ -326,15 +326,18 @@ class TestGenotype:
         for state, num in zip(["T", "C", "A"], [2, 2, 0]):
             assert simulator._obtain_allele_count(tree, ts.site(3), state) == num
 
-        beta_array = simulator._sim_beta(np.arange(4), ["A", "A", "G", "C"])
+        result = simulator._sim_beta(np.arange(4), ["A", "A", "G", "C"])
         np.testing.assert_array_almost_equal(
-            beta_array,
+            result.beta_array,
             [
                 value * freqdep(alpha, 1 / 2),
                 value * freqdep(alpha, 1 / 2),
                 0,
                 value * freqdep(alpha, 1 / 2),
             ],
+        )
+        np.testing.assert_array_almost_equal(
+            result.allele_freq, [1 / 2, 1 / 2, 0, 1 / 2]
         )
 
     def test_non_binary_tree(self):
@@ -357,10 +360,12 @@ class TestGenotype:
         for state, num in zip(["A", "T", "C"], [3, 1, 2]):
             assert simulator._obtain_allele_count(tree, ts.site(1), state) == num
 
-        beta_array = simulator._sim_beta([0, 1], ["A", "T"])
+        result = simulator._sim_beta([0, 1], ["A", "T"])
         np.testing.assert_array_almost_equal(
-            beta_array, [value * freqdep(alpha, 1 / 2), value * freqdep(alpha, 1 / 6)]
+            result.beta_array,
+            [value * freqdep(alpha, 1 / 2), value * freqdep(alpha, 1 / 6)],
         )
+        np.testing.assert_array_almost_equal(result.allele_freq, [1 / 2, 1 / 6])
 
     def test_allele_freq_one(self):
         """
@@ -374,6 +379,7 @@ class TestGenotype:
         np.array_equal(trait_df.site_id, [0])
         np.array_equal(trait_df.effect_size, [value])
         np.array_equal(trait_df.trait_id, [0])
+        np.array_equal(trait_df.allele_freq, [1])
 
     def test_allele_freq_one_freq_dep(self):
         """
@@ -387,6 +393,7 @@ class TestGenotype:
         np.array_equal(trait_df.site_id, [0])
         np.array_equal(trait_df.effect_size, [0])
         np.array_equal(trait_df.trait_id, [0])
+        np.array_equal(trait_df.allele_freq, [1])
 
 
 class TestSimTrait:
@@ -412,6 +419,7 @@ class TestSimTrait:
                     value * freqdep(alpha, 1 / 4),
                 ],
                 "causal_state": ["T", "A", "C"],
+                "allele_freq": [3 / 4, 1, 1 / 4],
                 "trait_id": np.zeros(3),
             }
         )

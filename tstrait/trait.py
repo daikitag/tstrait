@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 import tskit
@@ -6,6 +8,23 @@ import tstrait
 from .base import _check_instance
 from .base import _check_int
 from .base import _check_val
+
+
+@dataclass
+class _FreqResult:
+    """
+    Data class that contains simulated effect size and allele frequency.
+
+    Attributes
+    ----------
+    beta_array : numpy.array
+        Numpy array that includes simulated effect size.
+    allele_freq : numpy.array
+        Allele frequency of each causal mutation.
+    """
+
+    beta_array: np.array
+    allele_freq: np.array
 
 
 class _TraitSimulator:
@@ -101,28 +120,33 @@ class _TraitSimulator:
         tree = tskit.Tree(self.ts)
         num_samples = self.ts.num_samples
         freq_dep_array = []
+        allele_freq_array = []
         for site_id, causal_state in zip(site_id_array, causal_state_array):
             site = self.ts.site(site_id)
             tree.seek(site.position)
             freq = self._obtain_allele_count(tree, site, causal_state) / num_samples
             freq_dep_array.append(self._frequency_multiplier(freq))
+            allele_freq_array.append(freq)
 
-        return freq_dep_array
+        result = _FreqResult(beta_array=freq_dep_array, allele_freq=allele_freq_array)
+
+        return result
 
     def _sim_beta(self, site_id_array, causal_state_array):
         """
         Simulates effect size by using the model given in the `model` input. If `alpha`
         is non-zero, frequency dependence architecture is used.
         """
-        beta_array = self.model._sim_effect_size(
+        beta_array_non_freq = self.model._sim_effect_size(
             num_causal=self.num_causal, rng=self.rng
         )
 
-        if self.alpha == 0:
-            return np.transpose(beta_array)
-        else:
-            freq_dep = self._freq_dep(site_id_array, causal_state_array)
-            return np.multiply(np.transpose(beta_array), freq_dep)
+        result = self._freq_dep(site_id_array, causal_state_array)
+        result.beta_array = np.multiply(
+            result.beta_array, np.transpose(beta_array_non_freq)
+        )
+
+        return result
 
     def _run(self):
         """
@@ -137,7 +161,7 @@ class _TraitSimulator:
         for site_id in site_id_array:
             causal_state_array.append(self._choose_causal_state(site_id))
 
-        beta_array = self._sim_beta(site_id_array, causal_state_array)
+        result = self._sim_beta(site_id_array, causal_state_array)
 
         num_trait = self.model.num_trait
 
@@ -149,8 +173,9 @@ class _TraitSimulator:
             {
                 "position": np.repeat(position, num_trait),
                 "site_id": np.repeat(site_id_array, num_trait),
-                "effect_size": beta_array.flatten(order="F"),
+                "effect_size": result.beta_array.flatten(order="F"),
                 "causal_state": np.repeat(causal_state_array, num_trait),
+                "allele_freq": np.repeat(result.allele_freq, num_trait),
                 "trait_id": np.tile(np.arange(num_trait), self.num_causal),
             }
         )
@@ -202,6 +227,8 @@ def sim_trait(ts, model, *, num_causal=None, alpha=0, random_seed=None):
 
         * **site_id**: Site IDs that have causal mutation.
         * **effect_size**: Simulated effect size of causal mutation.
+        * **causal_state**: Derived state of causal mutation.
+        * **allele_freq**: Allele frequency of causal state.
         * **trait_id**: Trait ID.
 
     Examples
