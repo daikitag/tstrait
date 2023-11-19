@@ -9,6 +9,7 @@ parts:
 
 - caption: Simulation framework
   chapters:
+  - file: trait
   - file: effect-size
   - file: genetic
   - file: environment
