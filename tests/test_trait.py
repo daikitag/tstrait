@@ -81,18 +81,20 @@ class TestOutputDim:
 
     def check_dimensions(self, df, num_causal):
         assert len(df) == num_causal
-        assert df.shape[1] == 5
+        assert df.shape[1] == 6
         assert list(df.columns) == [
             "position",
             "site_id",
             "effect_size",
             "causal_state",
             "trait_id",
+            "allele_freq"
         ]
         _check_numeric_array(df["site_id"], "site_id")
         _check_numeric_array(df["effect_size"], "effect_size")
         _check_numeric_array(df["trait_id"], "trait_id")
         _check_numeric_array(df["position"], "position")
+        _check_numeric_array(df["allele_freq"], "allele_freq")
 
     @pytest.mark.parametrize(
         "trait_model",
